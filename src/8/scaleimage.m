@@ -19,17 +19,36 @@ new_cols = round(cols * scale);
 % 新しい画像の初期化
 scaled_image = zeros(new_rows, new_cols, depth, 'uint8');
 debug_image = orig_image;
-% ピクセルのマッピングと値の割り当て
-for r = 1:new_rows
-    for c = 1:new_cols                                
-        orig_r = round(r / scale);
-        orig_c = round(c / scale);
-        % 元画像の範囲内に収める
-        orig_r = min(orig_r, rows);
-        orig_c = min(orig_c, cols);
-        scaled_image(r, c, :) = orig_image(orig_r, orig_c, :);
-        debug_image(orig_r, orig_c, :) = 255; % Mark the mapped pixel in the debug image
-    end
+
+% 行列演算によるピクセルのマッピングと値の割り当て
+% 1. 出力画像の座標グリッドを作成
+[C, R] = meshgrid(1:new_cols, 1:new_rows);  % C: 列, R: 行
+
+% 2. 元画像上の対応座標を計算
+orig_R = round(R / scale);
+orig_C = round(C / scale);
+
+% 3. 元画像の範囲内にクリップ
+orig_R = max(min(orig_R, rows), 1);
+orig_C = max(min(orig_C, cols), 1);
+
+% 4. 線形インデックスに変換
+idx = sub2ind([rows, cols], orig_R(:), orig_C(:));
+
+% 5. 各チャンネルをまとめてコピー
+for d = 1:depth
+    channel = orig_image(:,:,d);
+    scaled_channel = channel(idx);
+    scaled_image(:,:,d) = reshape(scaled_channel, new_rows, new_cols);
+end
+
+% 6. デバッグ用画像で対応する元画素を白でマーク
+mask = false(rows, cols);
+mask(idx) = true;
+for d = 1:depth
+    channel = debug_image(:,:,d);
+    channel(mask) = 255;
+    debug_image(:,:,d) = channel;
 end
 
 % 結果の表示
